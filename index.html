@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>우선순위 플래너 + 달력</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, select { margin: 5px; }
+    .task { margin-top: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
+    .high { background-color: #ffe0e0; }
+    .medium { background-color: #fff0cc; }
+    .low { background-color: #e0ffe0; }
+    #calendar { max-width: 900px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <h2>📝 우선순위 플래너</h2>
+  <p>카테고리별 점수: 과제/약속: 10점, 시험공부: 9점, 공부/행사: 8점<br>
+     마감 점수 = 10 - 남은날 + 1 (10일 초과시 1점)<br>
+     난이도는 1~10 직접 입력</p>
+
+  <input type="text" id="name" placeholder="할 일 이름">
+  <select id="category">
+    <option value="0">과제</option>
+    <option value="1">약속</option>
+    <option value="2">시험공부</option>
+    <option value="3">공부</option>
+    <option value="4">행사</option>
+  </select>
+  <input type="number" id="days" min="0" max="30" placeholder="남은 날">
+  <input type="number" id="hard" min="1" max="10" placeholder="난이도">
+  <button onclick="addTask()">추가하기</button>
+  <hr>
+  <div id="taskList"></div>
+
+  <h3>📅 일정 달력</h3>
+  <div id="calendar"></div>
+
+  <script>
+    const categoryMap = ["과제", "약속", "시험공부", "공부", "행사"];
+    let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+    let calendar;
+
+    function calcScore(cat, days, hard) {
+      let score = 0;
+      score += (cat === 0 || cat === 1) ? 10 : (cat === 2 ? 9 : 8);
+      score += (days <= 10) ? (10 - days + 1) : 1;
+      score += hard;
+      return score;
+    }
+
+    function addTask() {
+      const name = document.getElementById("name").value.trim();
+      const category = parseInt(document.getElementById("category").value);
+      const days = parseInt(document.getElementById("days").value);
+      const hard = parseInt(document.getElementById("hard").value);
+
+      if (!name || isNaN(days) || isNaN(hard)) {
+        alert("모든 항목을 입력해주세요!");
+        return;
+      }
+
+      const score = calcScore(category, days, hard);
+      tasks.push({ name, category, days, hard, score });
+      saveAndRender();
+      clearInputs();
+    }
+
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      saveAndRender();
+    }
+
+    function saveAndRender() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTasks();
+      renderCalendar();
+    }
+
+    function clearInputs() {
+      document.getElementById("name").value = '';
+      document.getElementById("days").value = '';
+      document.getElementById("hard").value = '';
+    }
+
+    function renderTasks() {
+      const list = document.getElementById("taskList");
+      list.innerHTML = '';
+      const sorted = tasks.slice().sort((a, b) => b.score - a.score);
+      sorted.forEach(task => {
+        const div = document.createElement("div");
+        div.className = "task " + (task.score >= 25 ? 'high' : task.score >= 20 ? 'medium' : 'low');
+        div.innerHTML = `
+          <strong>${task.name}</strong> (${categoryMap[task.category]})<br>
+          남은 날: ${task.days}, 난이도: ${task.hard}, 점수: ${task.score}
+          <br><button onclick="deleteTask(${tasks.indexOf(task)})">삭제</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function renderCalendar() {
+      const events = tasks.map(task => {
+        // 오늘 날짜에 남은 날을 더해 일정 날짜 계산
+        const date = new Date();
+        date.setDate(date.getDate() + task.days);
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+
+        return {
+          title: `${task.name} (${categoryMap[task.category]})`,
+          start: dateStr,
+          color: task.score >= 25 ? '#ff9999' : task.score >= 20 ? '#ffd966' : '#b6f7b0'
+        };
+      });
+
+      if (!calendar) {
+        calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+          initialView: 'dayGridMonth',
+          locale: 'ko',
+          events: events,
+          eventClick: info => {
+            alert(`📌 ${info.event.title}\n일정 날짜: ${info.event.start.toLocaleDateString()}`);
+          }
+        });
+        calendar.render();
+      } else {
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+      }
+    }
+
+    saveAndRender();
+  </script>
+</body>
+</html>
