@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>우선 순위 플래너</title>
+  <title>우선순위 플래너 + 달력</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
   <style>
@@ -29,7 +29,7 @@
     <option value="3">공부</option>
     <option value="4">행사</option>
   </select>
-  <input type="number" id="days" min="0" max="30" placeholder="남은 날">
+  <input type="date" id="dueDate" placeholder="마감 날짜">
   <input type="number" id="hard" min="1" max="10" placeholder="난이도">
   <button onclick="addTask()">추가하기</button>
   <hr>
@@ -54,16 +54,23 @@
     function addTask() {
       const name = document.getElementById("name").value.trim();
       const category = parseInt(document.getElementById("category").value);
-      const days = parseInt(document.getElementById("days").value);
+      const dueDateStr = document.getElementById("dueDate").value;
       const hard = parseInt(document.getElementById("hard").value);
 
-      if (!name || isNaN(days) || isNaN(hard)) {
+      if (!name || !dueDateStr || isNaN(hard)) {
         alert("모든 항목을 입력해주세요!");
         return;
       }
 
+      // 오늘 날짜와 마감 날짜 차이(남은 날) 계산
+      const today = new Date();
+      const dueDate = new Date(dueDateStr);
+      const diffTime = dueDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const days = diffDays < 0 ? 0 : diffDays; // 마감 지난 날짜는 0으로 처리
+
       const score = calcScore(category, days, hard);
-      tasks.push({ name, category, days, hard, score });
+      tasks.push({ name, category, days, hard, score, dueDate: dueDateStr });
       saveAndRender();
       clearInputs();
     }
@@ -81,7 +88,7 @@
 
     function clearInputs() {
       document.getElementById("name").value = '';
-      document.getElementById("days").value = '';
+      document.getElementById("dueDate").value = '';
       document.getElementById("hard").value = '';
     }
 
@@ -94,7 +101,7 @@
         div.className = "task " + (task.score >= 25 ? 'high' : task.score >= 20 ? 'medium' : 'low');
         div.innerHTML = `
           <strong>${task.name}</strong> (${categoryMap[task.category]})<br>
-          남은 날: ${task.days}, 난이도: ${task.hard}, 점수: ${task.score}
+          마감 날짜: ${task.dueDate}, 난이도: ${task.hard}, 점수: ${task.score}
           <br><button onclick="deleteTask(${tasks.indexOf(task)})">삭제</button>
         `;
         list.appendChild(div);
@@ -103,17 +110,9 @@
 
     function renderCalendar() {
       const events = tasks.map(task => {
-        // 오늘 날짜에 남은 날을 더해 일정 날짜 계산
-        const date = new Date();
-        date.setDate(date.getDate() + task.days);
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-
         return {
           title: `${task.name} (${categoryMap[task.category]})`,
-          start: dateStr,
+          start: task.dueDate,
           color: task.score >= 25 ? '#ff9999' : task.score >= 20 ? '#ffd966' : '#b6f7b0'
         };
       });
